@@ -1,0 +1,17 @@
+# Shopify API
+ShopifyAPI>=12.0.0
+
+# PDF Generation
+reportlab>=4.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# HTTP requests
+requests>=2.31.0
+
+# Development tools (already installed)
+black>=24.0.0
+pylint>=3.0.0
+pytest>=8.0.0
+pytest-cov>=4.0.0

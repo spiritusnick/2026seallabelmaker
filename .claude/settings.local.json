@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pyenv versions)",
+      "Bash(pyenv local 3.12.11)",
+      "Bash(pyenv activate spiritus-shopify-app-env)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(python src/shopify_connector.py)",
+      "Bash(python src/pdf_generator.py)",
+      "Bash(python src/main.py)",
+      "Bash(lpstat -p -d)",
+      "Bash(lpoptions -p TOSHIBA_TEC_e_STUDIO_Series -l)",
+      "Bash(lpstat -p TOSHIBA_TEC_e_STUDIO_Series -l)",
+      "Bash(lprm -P TOSHIBA_TEC_e_STUDIO_Series 78 79 80 81)",
+      "Bash(cat .gitignore)",
+      "Bash(rm:*)",
+      "Bash(git config:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,121 @@
+name: Daily Fulfillment Stickers
+
+on:
+  schedule:
+    # Run at 7:30 AM Central Time
+    # Note: GitHub Actions uses UTC. 7:30 AM CST = 13:30 UTC (winter), 7:30 AM CDT = 12:30 UTC (summer)
+    - cron: '30 13 * * *'  # 7:30 AM Central (CST - winter time)
+
+  workflow_dispatch:  # Allow manual triggering from GitHub UI
+
+jobs:
+  generate-and-email-stickers:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Create environment variables file
+      run: |
+        cat > env.env << EOF
+        SHOPIFY_STORE_URL=${{ secrets.SHOPIFY_STORE_URL }}
+        SHOPIFY_API_KEY=${{ secrets.SHOPIFY_API_KEY }}
+        SHOPIFY_API_SECRET=${{ secrets.SHOPIFY_API_SECRET }}
+        SHOPIFY_ACCESS_TOKEN=${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+        SHOPIFY_SHARED_SECRET=${{ secrets.SHOPIFY_SHARED_SECRET }}
+        EOF
+
+    - name: Generate sticker PDF
+      id: generate
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from main import run_sticker_generation
+        # Generate PDF but don't print (GitHub Actions can't access local printer)
+        pdf_path = run_sticker_generation(days_back=7, output_dir='output', auto_print=False)
+        print(f'PDF_PATH={pdf_path}')
+        " > output.txt
+        cat output.txt
+        echo "pdf_path=$(grep PDF_PATH output.txt | cut -d= -f2)" >> $GITHUB_OUTPUT
+
+    - name: Get PDF filename
+      id: filename
+      run: |
+        PDF_FILE=$(ls output/*.pdf | head -n 1)
+        echo "pdf_file=$PDF_FILE" >> $GITHUB_OUTPUT
+        echo "Found PDF: $PDF_FILE"
+
+    - name: Send email with PDF attachment
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USER }}
+        password: ${{ secrets.EMAIL_PASS }}
+        subject: "Daily Fulfillment Stickers - ${{ github.run_number }}"
+        to: info@spirituscoffeeco.com,rbuonavita@seal-il.com,ksaxe@seal-il.com
+        from: Spiritus Coffee Fulfillment System <${{ secrets.EMAIL_USER }}>
+        body: |
+          Good morning!
+
+          Your daily fulfillment stickers are ready.
+
+          Please find the attached PDF with today's order stickers.
+
+          PRINTING INSTRUCTIONS:
+          ====================
+          1. Load Avery 5160 labels into Tray 2 of the Toshiba printer
+
+          2. Open the attached PDF and select File > Print
+
+          3. Click Properties, Preferences, or Printer Settings
+
+          4. Look for the Paper or Paper/Quality tab
+
+          5. Find the Paper Source or Tray Selection dropdown menu
+
+          6. Select "Tray 2" from the dropdown
+
+          7. Click OK and then Print
+
+          8. Apply stickers to order bags
+
+          IMPORTANT: Make sure to select Tray 2 to avoid printing on regular paper!
+
+          ---
+          Generated automatically by Spiritus Coffee Fulfillment System
+          Run #${{ github.run_number }} - ${{ github.run_id }}
+        attachments: ${{ steps.filename.outputs.pdf_file }}
+
+    - name: Upload PDF as backup artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: fulfillment-stickers-${{ github.run_number }}
+        path: output/*.pdf
+        retention-days: 7
+
+    - name: Workflow summary
+      if: success()
+      run: |
+        echo "### ✅ Stickers Generated and Emailed!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Email sent to:**" >> $GITHUB_STEP_SUMMARY
+        echo "- info@spirituscoffeeco.com" >> $GITHUB_STEP_SUMMARY
+        echo "- rbuonavita@seal-il.com" >> $GITHUB_STEP_SUMMARY
+        echo "- ksaxe@seal-il.com" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check your email for the PDF attachment" >> $GITHUB_STEP_SUMMARY
+        echo "2. Load Avery 5160 labels into Tray 2" >> $GITHUB_STEP_SUMMARY
+        echo "3. Print the PDF to your Toshiba printer" >> $GITHUB_STEP_SUMMARY
