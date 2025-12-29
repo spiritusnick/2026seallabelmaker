@@ -2,9 +2,9 @@ name: Daily Fulfillment Stickers
 
 on:
   schedule:
-    # Run at 7:30 AM Central Time
-    # Note: GitHub Actions uses UTC. 7:30 AM CST = 13:30 UTC (winter), 7:30 AM CDT = 12:30 UTC (summer)
-    - cron: '30 13 * * *'  # 7:30 AM Central (CST - winter time)
+    # Run at 7:45 AM Central Time
+    # Note: GitHub Actions uses UTC. 7:45 AM CST = 13:45 UTC (winter), 7:45 AM CDT = 12:45 UTC (summer)
+    - cron: '45 13 * * *'  # 7:45 AM Central (CST - winter time)
 
   workflow_dispatch:  # Allow manual triggering from GitHub UI
 
@@ -64,7 +64,7 @@ jobs:
         username: ${{ secrets.EMAIL_USER }}
         password: ${{ secrets.EMAIL_PASS }}
         subject: "Daily Fulfillment Stickers - ${{ github.run_number }}"
-        to: info@spirituscoffeeco.com,rbuonavita@seal-il.com,ksaxe@seal-il.com
+        to: info@spirituscoffeeco.com,rbuonavita@seal-il.com,ksaxe@seal-il.com,steve@do-the-numbers.com
         from: Spiritus Coffee Fulfillment System <${{ secrets.EMAIL_USER }}>
         body: |
           Good morning!
@@ -114,6 +114,7 @@ jobs:
         echo "- info@spirituscoffeeco.com" >> $GITHUB_STEP_SUMMARY
         echo "- rbuonavita@seal-il.com" >> $GITHUB_STEP_SUMMARY
         echo "- ksaxe@seal-il.com" >> $GITHUB_STEP_SUMMARY
+        echo "- steve@do-the-numbers.com" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Next steps:**" >> $GITHUB_STEP_SUMMARY
         echo "1. Check your email for the PDF attachment" >> $GITHUB_STEP_SUMMARY

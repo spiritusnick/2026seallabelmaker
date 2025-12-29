@@ -36,6 +36,8 @@ class StickerData:
     product_name: str
     variant_info: str
     requires_shipping: bool  # True if needs "SHIP" label
+    sticker_number: int = 1  # Which sticker for this address (1, 2, 3...)
+    total_for_address: int = 1  # Total stickers for this address
 
 
 class OrderProcessor:
@@ -67,13 +69,13 @@ class OrderProcessor:
     def create_stickers_from_orders(self, orders: List[Dict[str, Any]]) -> List[StickerData]:
         """
         Convert orders to sticker data structures.
-        Creates ONE sticker per line item.
+        Creates ONE sticker per unit (quantity 2 = 2 stickers).
 
         Args:
             orders: List of order dictionaries from Shopify
 
         Returns:
-            List of StickerData objects (one per line item)
+            List of StickerData objects (one per unit)
         """
         stickers = []
 
@@ -81,7 +83,35 @@ class OrderProcessor:
             order_stickers = self._process_single_order(order)
             stickers.extend(order_stickers)
 
+        # Calculate sticker numbers per address (e.g., 1/4, 2/4, 3/4, 4/4)
+        self._calculate_sticker_numbers(stickers)
+
         return stickers
+
+    def _calculate_sticker_numbers(self, stickers: List[StickerData]):
+        """
+        Calculate sticker numbers for each address.
+        Groups stickers by address and assigns 1/N, 2/N, etc.
+
+        Args:
+            stickers: List of StickerData objects to update in place
+        """
+        # Group stickers by address key (name + address)
+        address_groups: Dict[str, List[StickerData]] = {}
+
+        for sticker in stickers:
+            # Create a key based on customer name and address
+            key = f"{sticker.customer_name}|{sticker.address_line1}|{sticker.city}"
+            if key not in address_groups:
+                address_groups[key] = []
+            address_groups[key].append(sticker)
+
+        # Assign sticker numbers within each group
+        for key, group in address_groups.items():
+            total = len(group)
+            for i, sticker in enumerate(group, 1):
+                sticker.sticker_number = i
+                sticker.total_for_address = total
 
     def _process_single_order(self, order: Dict[str, Any]) -> List[StickerData]:
         """
@@ -130,34 +160,45 @@ class OrderProcessor:
             quantity = item.get('quantity', 1)
             product_name = item.get('name', 'Unknown Product')
 
-            # Extract variant information
+            # Extract variant information from variant_title
             variant_title = item.get('variant_title', '')
 
-            # If variant_title is None or empty, check properties
-            if not variant_title or variant_title == 'Default Title':
-                # Some products might have variant info in properties
-                properties = item.get('properties', [])
-                variant_parts = [prop.get('value', '') for prop in properties if prop.get('value')]
-                variant_info = ' / '.join(variant_parts) if variant_parts else ''
-            else:
-                variant_info = variant_title
+            # Also check properties (subscription orders often have grind info here)
+            properties = item.get('properties', [])
+            property_parts = []
+            for prop in properties:
+                prop_name = prop.get('name', '')
+                prop_value = prop.get('value', '')
+                # Skip internal/hidden properties (often start with _)
+                if prop_value and not prop_name.startswith('_'):
+                    property_parts.append(prop_value)
 
-            # Create sticker
-            sticker = StickerData(
-                order_name=order_name,
-                customer_name=customer_name,
-                address_line1=address_line1,
-                address_line2=address_line2,
-                city=city,
-                state=state,
-                zip_code=zip_code,
-                quantity=quantity,
-                product_name=product_name,
-                variant_info=variant_info,
-                requires_shipping=requires_shipping
-            )
+            # Combine variant_title and properties for complete info
+            variant_parts = []
+            if variant_title and variant_title != 'Default Title':
+                variant_parts.append(variant_title)
+            if property_parts:
+                variant_parts.extend(property_parts)
 
-            stickers.append(sticker)
+            variant_info = ' / '.join(variant_parts) if variant_parts else ''
+
+            # Create one sticker per unit (quantity 2 = 2 stickers)
+            for _ in range(quantity):
+                sticker = StickerData(
+                    order_name=order_name,
+                    customer_name=customer_name,
+                    address_line1=address_line1,
+                    address_line2=address_line2,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                    quantity=1,  # Each sticker represents 1 unit
+                    product_name=product_name,
+                    variant_info=variant_info,
+                    requires_shipping=requires_shipping
+                )
+
+                stickers.append(sticker)
 
         return stickers
 

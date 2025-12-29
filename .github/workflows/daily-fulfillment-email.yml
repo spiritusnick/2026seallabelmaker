@@ -2,9 +2,9 @@ name: Daily Fulfillment Sticker Email
 
 on:
   schedule:
-    # Run daily at 7:00 AM Central Time (12:00 UTC during CDT, 13:00 UTC during CST)
-    # Using 12:00 UTC to cover daylight saving time
-    - cron: '0 12 * * *'
+    # Run daily at 7:45 AM Central Time (12:45 UTC during CDT, 13:45 UTC during CST)
+    # Using 13:45 UTC for CST
+    - cron: '45 13 * * *'
 
   # Allow manual trigger for testing
   workflow_dispatch:

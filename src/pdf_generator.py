@@ -6,12 +6,56 @@ Formats stickers with customer info, address, and product details.
 """
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from order_processor import StickerData
+
+
+# Grind types to look for in variant info
+GRIND_TYPES = [
+    "Whole Bean",
+    "Ground for Auto Drip",
+    "Ground Auto Drip",
+    "Auto Drip",
+    "Ground for Drip",
+    "French Press",
+    "Ground for French Press",
+    "Ground for Espresso",
+    "Espresso",
+]
+
+
+def extract_grind_type(variant_info: str, product_name: str) -> Optional[str]:
+    """
+    Extract grind type from variant info or product name.
+
+    Args:
+        variant_info: The variant info string (e.g., "Rotating All Coffees / Whole Bean")
+        product_name: The product name (may contain grind type)
+
+    Returns:
+        The grind type if found, None otherwise
+    """
+    # Check variant_info first (case-insensitive)
+    text_to_check = f"{variant_info} {product_name}".lower()
+
+    for grind in GRIND_TYPES:
+        if grind.lower() in text_to_check:
+            # Return normalized grind type
+            if "whole bean" in grind.lower():
+                return "Whole Bean"
+            elif "french press" in grind.lower():
+                return "French Press"
+            elif "auto drip" in grind.lower() or "for drip" in grind.lower():
+                return "Ground Auto Drip"
+            elif "espresso" in grind.lower():
+                return "Ground Espresso"
+            return grind
+
+    return None
 
 
 # Avery 5160 Specifications (from PRD)
@@ -101,6 +145,10 @@ class PDFGenerator:
             x = (self.spec['left_margin'] +
                  col * (self.spec['label_width'] + self.spec['column_gap']))
 
+            # Apply offset for third column (4mm = ~0.157 inches) to align with labels
+            if col == 2:
+                x += 0.157 * inch
+
             # Y coordinate: start from top of page, go down
             y = (self.spec['page_height'] -
                  self.spec['top_margin'] -
@@ -138,9 +186,17 @@ class PDFGenerator:
             c.setFillColor(HexColor('#000000'))  # Back to black
             text_y -= line_height
 
-        # Customer name (regular font, 10pt - matches sample)
+        # Customer name with sticker count (e.g., "1/4" on right side)
         c.setFont("Helvetica", 10)
         c.drawString(x + left_margin, text_y, sticker.customer_name)
+
+        # Draw sticker count on right side (e.g., "1/4")
+        count_text = f"{sticker.sticker_number}/{sticker.total_for_address}"
+        count_width = c.stringWidth(count_text, "Helvetica-Bold", 10)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x + self.spec['label_width'] - count_width - 0.05 * inch, text_y, count_text)
+        c.setFont("Helvetica", 10)
+
         text_y -= line_height
 
         # Address - single line format like sample (street + city)
@@ -150,7 +206,7 @@ class PDFGenerator:
         text_y -= line_height
 
         # Product line with quantity and name
-        # Format: "2- Spiritus Coffee Whole Bean"
+        # Format: "1- Spiritus Coffee Subscription"
         product_line = f"{sticker.quantity}- {sticker.product_name}"
 
         # Truncate if too long
@@ -160,13 +216,12 @@ class PDFGenerator:
         c.drawString(x + left_margin, text_y, product_line)
         text_y -= line_height * 0.95
 
-        # Variant info (if present) - no indentation, matches sample
-        # Format: "1 Aether Ground for auto drip"
-        if sticker.variant_info:
-            variant_text = f"1 {sticker.variant_info}"
-            if len(variant_text) > 40:
-                variant_text = variant_text[:37] + "..."
-            c.drawString(x + left_margin, text_y, variant_text)
+        # Extract and display grind type (Whole Bean, Ground Auto Drip, French Press)
+        grind_type = extract_grind_type(sticker.variant_info or "", sticker.product_name)
+        if grind_type:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(x + left_margin, text_y, grind_type)
+            c.setFont("Helvetica", 10)
 
         # Optional: Draw border for debugging (comment out for production)
         # c.rect(x, y, self.spec['label_width'], self.spec['label_height'])
